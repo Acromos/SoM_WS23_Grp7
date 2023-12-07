@@ -1,0 +1,154 @@
+import numpy as np
+import random
+from IPython.display import clear_output
+import SOMPiBrain
+
+class HanoiEnv:
+    def __init__(self, n_discs):
+        self.n = n_discs
+        self.st = np.zeros((self.n, 3), dtype=int)
+        for i in range(self.n, 0, -1): ## Änderung
+            self.st[i - 1, 0] = i ## Änderung
+        #self.count = 0
+        self.dumm = 0
+        self.state_disc = 0
+
+    def reset(self):
+        self.__init__(self.n)
+        return self.st ## wofür??
+
+    def move(self, her, zil):
+        # Dummer Zug, auf selben Stab legen nicht gut
+        if her == zil:
+            self.dumm += 1
+            #print("so kann man auch Zeit verbringen...\nNeudumm = ", self.dumm)
+            return  ## Änderung
+
+        i = 0
+        # while Schleife um oberste Scheibe zu identifizieren
+        while i < self.n and self.st[i, her] == 0:
+            i += 1
+            
+        # wenn herkunftsspalte leer
+        if i == self.n:
+            self.dumm += 1
+            #print("da is nix, mach nochmal\nNeudumm = ", self.dumm)
+            return ## Änderung 
+
+        ##print("Herkunftsspalte, Eintrag in Zeile i: ", i)
+        # 
+        # Wenn Zielspalte leer ist
+        if np.sum(self.st[:, zil]) == 0:
+            self.st[self.n - 1, zil] = self.st[i, her]
+            self.st[i, her] = 0
+            ##self.count += 1
+            ## Änderung
+        else:
+            #oberste leere stelle finden in Zielspalte
+            j = 0
+            while j < self.n and self.st[j, zil] == 0:
+                j += 1
+            # prüfen, ob scheibe kleiner ist
+            if j == self.n or self.st[j, zil] < self.st[i, her]:
+                self.dumm += 1
+                #print("du schummler willst ja schummeln, aber das geht nich!!!!\nNeudumm = ", self.dumm)
+                return ##Änderung
+            #wenn zu verschiebende scheibe kleiner, verschieben und löschen
+            else:
+                self.st[j - 1, zil] = self.st[i, her]
+                self.st[i, her] = 0
+                ##self.count += 1
+
+        ## print(self.st, "\nnach Zug Nr. ", self.count) ##Änderung
+        ## self.sieg()  # hab ich schon gewonnen? ##Änderung
+
+    def sieg(self):
+        global reward
+        
+        return np.sum(self.st[:, 0]) + np.sum(self.st[:, 1]) == 0
+    
+
+        # Discretize the state space by digitizing the values
+
+    def discretize_state(self, state):
+        
+        if state is None:
+            # Handle the case where state is None
+            return 0
+        else:
+            stateflat = list(state.flatten())
+            state_vec = []
+            for i in range(1, self.n+1):
+                state_vec.append(stateflat.index(i)%3)
+            q_index = 0
+            for i in range(len(state_vec)):
+                q_index += state_vec[i]
+                q_index *= 3
+            # Your existing discretization logic
+                return q_index
+        
+
+# Example usage:
+# next_state = discretize_state(next_state)
+
+env = HanoiEnv(n_discs=3)
+state_num = 3**env.n # Discretized state space
+action_num = 9  # Assuming 3 pegs and 3 possible moves for each peg
+brain = SOMPiBrain.SOMPiBrain(state_num, action_num)
+
+print("Training started.\n")
+
+for episode in range(1, 200):
+    state = env.reset()
+    state_disc = env.discretize_state(state)
+    epochs = 0
+    reward = 0
+    done = False
+
+    while not done:
+        action = brain.get_action(state_disc)
+        next_state = env.move(action // 3, action % 3)
+        next_state_disc = env.discretize_state(next_state) # was macht das?
+        
+        done = env.sieg()
+        if done:
+            reward += 1000
+        reward -= 1    
+        state = brain.reward_action(state, next_state_disc, action, reward)
+        epochs += 1
+        
+  
+
+    if episode % 10000 == 0: ##Änderung
+        clear_output(wait=True)
+        print(f"Episode: {episode}")
+
+#print("Anzahl Züge:", epochs)
+print("Training finished.\n")
+
+# Evaluation (customize based on your criteria)
+'''
+print("Evaluate agent's performance.\n")
+state = env.reset()
+state = env.discretize_state(state)
+epochs, penalties, reward = 0, 0, 0
+done = False
+
+while not done:
+    
+    action = brain.get_action(state, False)
+    next_state = env.move(action // 3, action % 3)
+    next_state = env.discretize_state(next_state)
+    state = next_state
+    reward -= 1
+    epochs += 1
+    done = env.sieg()
+    if epochs > 2*(2**env.n) - 1: # um bei zu vielen Zügen die Schleife zu beenden
+        clear_output(wait=True)
+        print(f"Episode: {episode}")
+        done = True
+        
+
+print(f"Results after evaluation:")
+print(f"Total moves taken: {epochs}")
+'''
