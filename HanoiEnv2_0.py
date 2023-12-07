@@ -1,0 +1,192 @@
+import numpy as np
+import random
+from IPython.display import clear_output
+import copy
+
+
+# AI-class for SOM
+# Q-Learning-Code based on:
+# https://towardsdatascience.com/reinforcement-learning-teach-a-taxi-cab-to-drive-around-with-q-learning-9913e611028f
+class SOMPiBrain(object):
+    def __init__(self, state_num, action_num, alpha=0.1, gamma=0.6, epsilon=0.7): 
+        self.alpha = alpha 
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.q_table = np.zeros([state_num, action_num])
+        self.action_num=action_num
+        
+    # Get the best or a random action for the current state     
+    def get_action(self, state, explore=True):    
+       
+        if  (random.uniform(0, 1) < self.epsilon) and explore==True: 
+            action = random.randint(0, self.action_num-1) # Explore action space
+        else:
+            action = np.argmax(self.q_table[state])%9 # Exploit learned values          
+        
+        return action
+        
+    # Reward the last action with the participating states   
+    def reward_action(self, state, next_state, action, reward):
+        old_value = self.q_table[state, action]
+        next_max = np.max(self.q_table[next_state])
+        new_value = (1 - self.alpha) * old_value + self.alpha * (reward + self.gamma * next_max)
+        self.q_table[state, action] = new_value
+        
+        return next_state
+
+
+class HanoiEnv:
+    def __init__(self, n_discs):
+        self.n = n_discs  #Anzahl der Scheiben
+        self.st_mat = np.zeros((self.n, 3), dtype=int) #State inMatrixformat für visalisierung
+        self.st_mat [:,0]=(1,2,3)   #Scheiben auf den ersten Stab / Ausgangsstate
+        self.dumm = 0  #Illegale und nicht mögliche Züge
+        self.st_disc = [] #State mit Scheibenpositionen als Vektor
+        self.st_encode = 0 #State codiert um als Zeile in der Q Matrix anzuzeigen
+
+    def reset(self):
+        self.__init__(self.n)
+        return self.st_mat #Alles auf Ausgangsstate rückgabe in matrixform
+
+    def move(self, her, zil):  #her= von wo wird genommen/zil= wohin wird gelegt
+       # erst alle illegalen und dummzüge
+        # Dummer Zug, auf selben Stab legen nicht gut
+        if her == zil:
+            self.dumm += 1
+        #Herkunftsspalte ist leer
+        elif np.sum(self.st_mat[:,her])==0:
+            self.dumm += 1
+            
+        #legale Züge (bis auf einen)
+        else:
+            # while Schleife um oberste Scheibe zu identifizieren
+            i = 0
+            while i < self.n-1 and self.st_mat[i, her] == 0:
+                i += 1
+                
+            #Zielspalte anschauen    
+            # Wenn Zielspalte leer ist
+            if np.sum(self.st_mat[:, zil]) == 0:
+                self.st_mat[self.n - 1, zil] = self.st_mat[i, her] #Zielposition überschreiben
+                self.st_mat[i, her] = 0 #Herkunftsposition löschen
+               
+            else:
+                #oberste Scheibe finden in Zielspalte
+                j = 0
+                while j < self.n-1 and self.st_mat[j, zil] == 0:
+                    j += 1
+                    
+                # prüfen, ob scheibe kleiner ist / dies ist ein Dummzug
+                if self.st_mat[j, zil] < self.st_mat[i, her]:
+                    self.dumm += 1
+                    
+                    
+                #verschieben und löschen
+                else:
+                    self.st_mat[j - 1, zil] = self.st_mat[i, her] #Zielposition überschreiben
+                    self.st_mat[i, her] = 0 #Herkunftsposition löschen
+                    
+        return self.st_mat #Neuer State (oder alter bei illegalem) als Matrix übergeben        
+
+
+    def sieg(self): #Siegbedingung Prüfen und als boolean zurückgeben
+                
+        return np.sum(self.st_mat[:, 0]) + np.sum(self.st_mat[:, 1]) == 0
+    
+
+
+    def encode(self, st_mat):
+        #macht aus Matrixform Codierte Form
+        st_flat = list(st_mat.flatten()) #Matrix als Langer Vektor
+        
+        self.st_encode = 0 #neu initialisieren für while schleife
+        #Trägt Scheibenpositon in ein 1-dimensionales Array
+        self.st_disc=[] #für die wiederholungen des brains
+        for i in range(1, self.n+1):  #kann evtl lokal werden und aus Klasse gestrichen werden
+            self.st_disc.append(st_flat.index(i)%3) #Scheibenorientierte State wird gebaut
+
+        #berechnet für jeden möglichen state einen wert von 0 bis state_num
+        for j in range(len(self.st_disc)):  
+            self.st_encode += self.st_disc[j]
+            if j < len(self.st_disc)-1:  #letzter Wert wird nicht mitmultipliziert
+                self.st_encode *= 3
+        
+            
+        return self.st_encode #gibt Zeile des States für q_teble
+        
+
+env = HanoiEnv(n_discs=3)  #Hanoi Objekt wird erstellt mit Scheibenanzahl
+
+brain = SOMPiBrain(state_num=3**env.n, action_num=9) #Brain Objekt wird erstellt / action num immer 9 / state num wird berechnet
+
+print("Training started.\n")
+
+for episode in range(1, 100):   #Anzahl der Spiele für Training bis zum Sieg
+    state = env.reset()
+
+    zugzahl = 0
+    reward = 0
+    done = False
+
+    #Macht Züge bis zum Sieg ()
+    while not done:
+        env.st_encode = env.encode(env.st_mat) #aktelle State Nr für Q Table
+        action = brain.get_action(env.st_encode)      #Aktion für aktuellen state
+        
+        old_st_encode = copy.copy(env.st_encode)
+        
+        next_st_mat = env.move(action // 3, action % 3) #neuer State in Matrixform
+        next_st_encode = env.encode(next_st_mat)
+        
+        done = env.sieg()
+        if done:
+            reward += 10000 - env.dumm * 10 - zugzahl # Belohnung für den Sieg mit Abzüge für dumme Züge und Anzahl
+            
+        state = brain.reward_action(old_st_encode, next_st_encode, action, reward)
+        zugzahl += 1
+  
+
+        # if zugzahl % 10000 == 0: ##Änderung
+        #     clear_output(wait=True)
+        #     print(f"Episode: {episode}")
+        #     break
+
+#print("Anzahl Züge:", epochs)
+print("Training finished.\n")
+
+# Evaluation (customize based on your criteria)
+
+print("Evaluate agent's performance.\n")
+game = HanoiEnv(n_discs=3)
+
+for episode in range(1, 5):   #Anzahl der Spiele für Training bis zum Sieg
+    game.st_mat = game.reset()
+
+    zugzahl = 0
+
+    done = False
+
+    while not done:
+        
+        
+        game.st_encode = game.encode(game.st_mat) #aktelle State Nr für Q Table
+        action = brain.get_action(game.st_encode, explore = False)      #Aktion für aktuellen state
+            
+        old_st_encode = copy.copy(game.st_encode)
+            
+        next_st_mat = game.move(action // 3, action % 3) #neuer State in Matrixform
+        #print (game.st_mat)
+        next_st_encode = game.encode(next_st_mat)
+        
+        zugzahl += 1    
+        done = game.sieg()
+        
+        
+        if zugzahl > 10*(2**game.n) - 1: # um bei zu vielen Zügen die Schleife zu beenden
+            clear_output(wait=True)
+            print(f"Episode: {episode}")
+            done = True
+        
+
+    print(f"Results after evaluation:")
+    print(f"Total moves taken: {zugzahl}\nDummzüge: {game.dumm}")
