@@ -117,6 +117,7 @@ class HanoiEnv:
     
     def visualisierung(self):
         plt.clf() # vorherigen Plot löschen
+        plt.axis('off')
         # Stäbe visualisieren
         stab1 = 0
         stab2 = self.n/2
@@ -124,6 +125,7 @@ class HanoiEnv:
         Dicke_stab = 0.1
         Dicke_scheibe = 0.4
         plt.bar([stab1, stab2, stab3], self.n, width = Dicke_stab, color = (0.55, 0.3, 0.1))
+        plt.text((stab3 + Dicke_scheibe*self.n)/2, self.n*1.1, f"Anzahl der Züge: {zugzahl}")
         # Farbcodierung muss <=1!!
         r = 0.7
         g = 0.4
@@ -150,13 +152,13 @@ class HanoiEnv:
                 boden -=1
         plt.pause(0.2) # Plot für jeweils n Sekunden    
 
-env = HanoiEnv(n_discs=5)  #Hanoi Objekt wird erstellt mit Scheibenanzahl
+env = HanoiEnv(n_discs=7)  #Hanoi Objekt wird erstellt mit Scheibenanzahl
 
 brain = SOMPiBrain(state_num=3**env.n, action_num=9) #Brain Objekt wird erstellt / action num immer 9 / state num wird berechnet
 
 print("Training started.\n")
 
-for episode in range(1, 1001):   #Anzahl der Spiele für Training bis zum Sieg
+for episode in range(1, 1301):   #Anzahl der Spiele für Training bis zum Sieg
     state = env.reset()
 
     zugzahl = 0
