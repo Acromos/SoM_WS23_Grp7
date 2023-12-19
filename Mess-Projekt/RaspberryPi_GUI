@@ -1,0 +1,38 @@
+import tkinter as tk
+#Hilfe hier zu finden
+#print(dir(tk.Grid))
+
+def aktionSF():
+    label3 = tk.Label(root, text="Aktion durchgeführt", bg="yellow")
+    label3.grid(row=2, column=1)
+
+root = tk.Tk()
+
+label1 = tk.Label(root, text="Raspberry Pi 3", 
+                  fg="blue", 
+                  bg="light blue", 
+                  font=("times", 50, 
+                        "bold", 
+                        "italic"))    # Textausgabe erzeugen
+
+label1.grid(row=0, column=0)                # in GUI Element einbetten
+
+label2 = tk.Label(root, text="R1 / C1", bg="lightgreen")
+label2.grid(row=1, column=1)
+
+label3 = tk.Label(root, text="R2 / C2", bg="orange")
+label3.grid(row=2, column=2)
+
+label4 = tk.Label(root, text="R0 / C1", bg= "purple")
+label4.grid(row=0, column=1, sticky="s")
+
+eingabefeld_wert=tk.StringVar()
+eingabefeld=tk.Entry(root, textvariable=eingabefeld_wert, show="*")
+eingabefeld.grid(row=1, column=0)
+eingabefeld_wert2=tk.StringVar()
+eingabefeld2=tk.Entry(root, textvariable=eingabefeld_wert2)
+eingabefeld2.grid(row=0, column= 2)
+
+schaltf1 = tk.Button(root, text="Aktion durchführen", command= aktionSF).grid(row=2, column=1)
+
+root.mainloop()
