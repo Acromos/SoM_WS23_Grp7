@@ -16,7 +16,7 @@ TICK_RATE_HZ=2
 TICK_RATE=1/TICK_RATE_HZ        # Wie oft wird nach neuen Nachrichtenüberprüft
 
 Speicher = []   # Zum Speichern der MQTT Daten
-Zeitstempel = [] #Zum Speichern der Zeitstempel
+Zeitstempel = [] # Zum Speichern der Zeitstempel
 
 def on_message(client, userdata, msg):
     # Konvertieren der Daten in eine Liste
@@ -78,7 +78,7 @@ canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)  # Fenster anpassen
 
 # Funktion zum Öffnen der Webseite im Standard-Webbrowser
 def open_webpage():
-    webbrowser.open("http://127.0.0.1:5000/")  #URL anpassen, wenn Port sich ändert
+    webbrowser.open("http://127.0.0.1:5000/")  # URL anpassen, wenn Port sich ändert
 
 # Button zum Öffnen der Webseite hinzufügen
 webpage_button = tk.Button(window, text="Webseite öffnen", command=open_webpage)
