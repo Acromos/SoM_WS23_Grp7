@@ -1,0 +1,88 @@
+import tkinter as tk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import paho.mqtt.client as mqtt
+from bottle import route, run, template
+from datetime import datetime
+import matplotlib.dates as mdates
+import webbrowser
+
+# MQTT Server Daten
+MQTT_PORT=1883                  
+MQTT_ADDRESS="141.22.194.198"   # IP Adresse: 141.22.194.198/ Außerhalb der Hochschule unterscheidet sie sich
+MQTT_CLIENT_NAME="diana_send"
+MQTT_TOPIC="MEDS/Temperatur_real"
+TICK_RATE_HZ=2                  
+TICK_RATE=1/TICK_RATE_HZ        # Wie oft wird nach neuen Nachrichtenüberprüft
+
+Speicher = []   # Zum Speichern der MQTT Daten
+Zeitstempel = [] # Zum Speichern der Zeitstempel
+
+def on_message(client, userdata, msg):
+    # Konvertieren der Daten in eine Liste
+    data = [float(x) for x in msg.payload.decode().split(',')]
+    
+    # Daten global speichern
+    global Speicher
+    global Zeitstempel
+    if len(Speicher)>30:
+        del Speicher[0]
+        del Zeitstempel[0]
+        
+    Speicher.append(data)
+    
+    # Zeitstempel hinzufügen
+    
+    Zeitstempel.append(datetime.now())
+    
+    # Plot aktualisieren
+    update_plot()
+    
+def update_plot():
+    
+    # Alten plot löschen
+    subplot.clear()
+
+    # Neuer Plot
+    subplot.plot(Zeitstempel, Speicher, label='Datenreihe')
+
+    # Datumsformat für x-Achse
+    subplot.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M:%S"))
+    
+    subplot.set_title('Temperaturerfassung')
+    subplot.set_xlabel('Zeit')
+    subplot.set_ylabel('Temperatur')
+    subplot.legend()
+
+    # Zeichnen
+    canvas.draw()
+
+# Verbindung zum MQTT-Server herstellen
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(MQTT_ADDRESS, 1883, 60)
+client.subscribe(MQTT_TOPIC)
+client.loop_start()
+
+# GUI erstellen
+window = tk.Tk()
+window.title("Temperaturerfassung")
+
+# Erstelle einen Figure- und Subplot-Objekt außerhalb der Funktion
+figure = Figure(figsize=(5, 4), dpi=100)
+subplot = figure.add_subplot(1, 1, 1)
+
+# Erstelle ein Canvas-Objekt außerhalb der Funktion
+canvas = FigureCanvasTkAgg(figure, master=window)
+canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)  # Fenster anpassen
+
+# Funktion zum Öffnen der Webseite im Standard-Webbrowser
+def open_webpage():
+    webbrowser.open("http://127.0.0.1:5000/")  # URL anpassen, wenn Port sich ändert
+
+# Button zum Öffnen der Webseite hinzufügen
+webpage_button = tk.Button(window, text="Webseite öffnen", command=open_webpage)
+webpage_button.pack()
+
+# GUI starten
+window.mainloop()

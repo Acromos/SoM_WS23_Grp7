@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <!-- Zeichenkodierung und Darstellung der Website angepasst an den Bildschirm -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tkinter Plot</title>
+</head>
+<body>
+    <h1>Tkinter Plot</h1>
+
+    <!-- Hier wird das Plot-Bild angezeigt -->
+    <img src="{{ url_for('update_and_plot') }}" alt="Plot" id="plotImage">
+
+    <!-- Buttons für die Optionen -->
+    
+    <br>
+    <button onclick="formatScale()">Skala formatieren (Kelvin)</button>
+    <br>
+    <button onclick="updateAndPlot()">Live-Daten aktualisieren</button>
+    <br>
+    <button onclick="csvdownload()">CSV Download</button>
+
+
+     
+    <!-- JavaScript-Code, welcher beim Aufrufen der jeweiligen Buttons durchgeführt wird -->
+    <script>
+        function csvdownload(){
+            download();
+        }
+        function formatScale() {
+            // Hier AJAX-Aufruf für '/format_scale'
+            // Aktualisiere das Plot-Bild
+            updatePlotImage();
+        }
+
+        function updateAndPlot() {
+            // Hier AJAX-Aufruf für '/update_and_plot'
+            // Aktualisiere das Plot-Bild
+            updatePlotImage();
+        }
+
+        function updatePlotImage() {
+            // Aktualisiere das Plot-Bild, indem die 'src'-Eigenschaft des Bild-Elements geändert wird
+            document.getElementById('plotImage').src = "{{ url_for('update_and_plot') }}?" + new Date().getTime();
+        }
+
+     
+    </script>
+</body>
+</html>
