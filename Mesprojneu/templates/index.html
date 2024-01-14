@@ -15,8 +15,6 @@
     <!-- Buttons für die Optionen -->
     
     <br>
-    <button onclick="formatScale()">Skala formatieren (Kelvin)</button>
-    <br>
     <button onclick="updateAndPlot()">Live-Daten aktualisieren</button>
     <br>
     <button onclick="csvdownload()">CSV Download</button>
@@ -26,7 +24,7 @@
     <!-- JavaScript-Code, welcher beim Aufrufen der jeweiligen Buttons durchgeführt wird -->
     <script>
         function csvdownload(){
-            fetch("http://127.0.0.1:5000/download_csv")
+            fetch("http://141.22.36.248/download_csv")
                 .then(response => response.text())
                 .then(csvData => {
                     var blob = new Blob([csvData], { type: 'text/csv' });
@@ -38,11 +36,6 @@
                     document.body.removeChild(link);
                 })
                 .catch(error => console.error('Fehler beim Herunterladen der CSV:', error));
-        }
-        function formatScale() {
-            // Hier AJAX-Aufruf für '/format_scale'
-            // Aktualisiere das Plot-Bild
-            updatePlotImage();
         }
 
         function updateAndPlot() {
