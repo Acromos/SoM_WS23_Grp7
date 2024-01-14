@@ -1,88 +1,105 @@
-import tkinter as tk
+from flask import Flask, render_template, Response, make_response, send_file
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import matplotlib.pyplot as plt
 import paho.mqtt.client as mqtt
-from bottle import route, run, template
-from datetime import datetime
-import matplotlib.dates as mdates
-import webbrowser
+import threading
+import time
+import csv
+from io import StringIO, BytesIO
 
-# MQTT Server Daten
-MQTT_PORT=1883                  
-MQTT_ADDRESS="141.22.194.198"   # IP Adresse: 141.22.194.198/ Außerhalb der Hochschule unterscheidet sie sich
-MQTT_CLIENT_NAME="diana_send"
-MQTT_TOPIC="MEDS/Temperatur_real"
-TICK_RATE_HZ=2                  
-TICK_RATE=1/TICK_RATE_HZ        # Wie oft wird nach neuen Nachrichtenüberprüft
+MQTT_PORT = 1883
+MQTT_ADDRESS = "141.22.194.198"
+MQTT_CLIENT_NAME = "diana_send"
+MQTT_TOPIC = "MEDS/Temperatur_real"
+TICK_RATE_HZ = 2
+TICK_RATE = 1 / TICK_RATE_HZ
 
-Speicher = []   # Zum Speichern der MQTT Daten
-Zeitstempel = [] # Zum Speichern der Zeitstempel
+# Initialize Flask app
+app = Flask(__name__)
 
+# Initialize temperature data list
+temperature_data = []
+
+# Initialize Matplotlib Figure and Axis
+fig, ax = plt.subplots()
+ax.set_title('Temperaturverlauf')
+ax.set_xlabel('Zeit')
+ax.set_ylabel('Temperatur (°C)')
+canvas = FigureCanvas(fig)
+
+# MQTT connection callback
+def on_connect(client, userdata, flags, rc):
+    print("Connected to the MQTT broker with result code " + str(rc))
+    client.subscribe(MQTT_TOPIC)
+
+# MQTT message callback
 def on_message(client, userdata, msg):
-    # Konvertieren der Daten in eine Liste
-    data = [float(x) for x in msg.payload.decode().split(',')]
-    
-    # Daten global speichern
-    global Speicher
-    global Zeitstempel
-    if len(Speicher)>30:
-        del Speicher[0]
-        del Zeitstempel[0]
-        
-    Speicher.append(data)
-    
-    # Zeitstempel hinzufügen
-    
-    Zeitstempel.append(datetime.now())
-    
-    # Plot aktualisieren
-    update_plot()
-    
+    temperature = float(msg.payload.decode())
+    add_temperature_data(temperature)
+
+# Function to add temperature data
+def add_temperature_data(temperature):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    temperature_data.append({'Timestamp': timestamp, 'Temperature': temperature})
+
+# MQTT temperature update thread
+def temperature_update():
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.connect(MQTT_ADDRESS, MQTT_PORT, 60)
+    client.loop_forever()
+
+# Function to update plot
 def update_plot():
-    
-    # Alten plot löschen
-    subplot.clear()
+    ax.clear()
+    x_data = [entry['Timestamp'] for entry in temperature_data[-30:]]
+    y_data = [entry['Temperature'] for entry in temperature_data[-30:]]
+    ax.plot(x_data, y_data, marker='o', linestyle='-', color='b', label='Temperaturverlauf')
+    ax.set_title('Temperaturverlauf')
+    ax.set_xlabel('Zeit')
+    ax.set_ylabel('Temperatur (°C)')
+    ax.legend()
 
-    # Neuer Plot
-    subplot.plot(Zeitstempel, Speicher, label='Datenreihe')
+# Flask route for index page
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    # Datumsformat für x-Achse
-    subplot.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M:%S"))
-    
-    subplot.set_title('Temperaturerfassung')
-    subplot.set_xlabel('Zeit')
-    subplot.set_ylabel('Temperatur')
-    subplot.legend()
-
-    # Zeichnen
+# Flask route for updating plot
+@app.route('/update_plot')
+def update_and_plot():
+    update_plot()
     canvas.draw()
+    img = BytesIO()
+    fig.savefig(img)
+    img.seek(0)
+    return send_file(img, mimetype='image/png')
 
-# Verbindung zum MQTT-Server herstellen
-client = mqtt.Client()
-client.on_message = on_message
-client.connect(MQTT_ADDRESS, 1883, 60)
-client.subscribe(MQTT_TOPIC)
-client.loop_start()
+# Flask route for downloading CSV data
+@app.route('/download')
+def download():
+    csv_data = StringIO()
+    csv_writer = csv.writer(csv_data)
+    csv_writer.writerow(['Timestamp', 'Temperature'])
 
-# GUI erstellen
-window = tk.Tk()
-window.title("Temperaturerfassung")
+    if temperature_data:
+        for entry in temperature_data:
+            csv_writer.writerow([entry['Timestamp'], entry['Temperature']])
 
-# Erstelle einen Figure- und Subplot-Objekt außerhalb der Funktion
-figure = Figure(figsize=(5, 4), dpi=100)
-subplot = figure.add_subplot(1, 1, 1)
+    filename = 'temperature_data.csv'
+    with open(filename, 'w') as file:
+        file.write(csv_data.getvalue())
 
-# Erstelle ein Canvas-Objekt außerhalb der Funktion
-canvas = FigureCanvasTkAgg(figure, master=window)
-canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)  # Fenster anpassen
+    response = make_response(csv_data.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    return response
 
-# Funktion zum Öffnen der Webseite im Standard-Webbrowser
-def open_webpage():
-    webbrowser.open("http://127.0.0.1:5000/")  # URL anpassen, wenn Port sich ändert
+if __name__ == '__main__':
+    # Start MQTT thread in the main thread
+    threading.Thread(target=temperature_update, daemon=True).start()
 
-# Button zum Öffnen der Webseite hinzufügen
-webpage_button = tk.Button(window, text="Webseite öffnen", command=open_webpage)
-webpage_button.pack()
-
-# GUI starten
-window.mainloop()
+    # Run Flask app in the main thread without debug mode
+    app.run(host='0.0.0.0', port=5000)
