@@ -102,4 +102,4 @@ if __name__ == '__main__':
     threading.Thread(target=temperature_update, daemon=True).start()
 
     # Run Flask app in the main thread without debug mode
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=80) # Port=80 für RaspbPi, Port = 5000 für Computer
