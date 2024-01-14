@@ -3,6 +3,7 @@ import board
 import adafruit_dht
 from paho.mqtt import client as mqtt_client
 from datetime import datetime
+
 # MQTT-Konfiguration
 MQTT_PORT = 1883
 MQTT_ADDRESS = "141.22.194.198"
@@ -35,7 +36,7 @@ while True:
         # Senden von Datum Daten an MQTT
         client.publish(MQTT_TOPIC_DATUM, str(date_time))
 
-        print("Temp: {:.1f} C    Humidity: {}% ".format(temperature_c, humidity))
+        print("Temp: {:.2f} C    Humidity: {}% ".format(temperature_c, humidity))
 
     except RuntimeError as error:
         print(error.args[0])
